@@ -6,12 +6,40 @@ import cv2
 import sys
 from picamera2 import Picamera2
 
+Width = 1280
+Height = 720
+Screen_Center = np.array([Width/2 , Height/2])
 
 # Initialize Picamera2
 picam2 = Picamera2()
-preview_config = picam2.create_preview_configuration(main={"size": (1280, 720)})
+preview_config = picam2.create_preview_configuration(main={"size": (Width, Height)})
 picam2.configure(preview_config)
 picam2.start()
+
+
+"""
+    obtain_Vector(corners, ids)
+    Calculate vectors from the center of the screen to the center of detected ArUco markers.
+    
+    Parameters:
+        ids (numpy.ndarray): The ids of the detected ArUco markers.
+        corners (list): The corners of the detected ArUco markers.
+        
+    Returns:
+        List of Tuples: a list containing the vectors as tuples
+"""
+
+def obtain_Vector(corners, ids):
+    vector_array = []
+    if ids is not None:
+        for corner in corners:
+            marker_center = np.mean(corner[0], axis=0)
+            vector = marker_center - Screen_Center
+            vector_array.append((vector[0], vector[1]))
+    return vector_array
+
+
+    
 
 # Start the camera
 
@@ -52,14 +80,16 @@ while True:
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
     h, w, _ = frame.shape
-    width = 1280
-    height = 720
+    
 
-    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_CUBIC)
+    frame = cv2.resize(frame, (Width, Height), interpolation=cv2.INTER_CUBIC)
     corners, ids, rejected = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+    vector_array = obtain_Vector(corners, ids)
+
 
     detected_markers = aruco_display(corners, ids, rejected, frame)
-    cv2.imshow("Image", detected_markers)
+    shown_vectors = detected_markers(detected_markers, Screen_Center,  vector_array, (255, 0, 0), 5, 0, 1)
+    cv2.imshow("Image", shown_vectors)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
