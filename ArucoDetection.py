@@ -39,12 +39,27 @@ def obtain_Vector(corners, ids):
     return vector_array
 
 
-    
+"""
+    obtain_Distance(corners)
+    Calculate distance from the aruco marker to the camera
 
-# Start the camera
+    Parameters:
+        
+        corners (list): The corners of the detected ArUco markers.
+
+    Returns:
+        List of Tuples: a list containing the {x,y,z} vectors
+"""
 
 
-# Function to capture frame from Picamera2
+def obtain_Distance(corners):
+    distance_vectors = []
+    for corner in corners:
+        rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers((corner, 120, camera_matrix, camera_dist))
+        distance_vectors.append(rvecs)
+    return rvecs    
+
+
 
 
 ap = argparse.ArgumentParser()
