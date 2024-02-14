@@ -10,11 +10,26 @@ Width = 1280
 Height = 720
 Screen_Center = np.array([Width/2 , Height/2])
 
-# Initialize Picamera2
-picam2 = Picamera2()
-preview_config = picam2.create_preview_configuration(main={"size": (Width, Height)})
-picam2.configure(preview_config)
-picam2.start()
+
+
+"""
+    picam_Init(Width, Height)
+    Initialize the picam object
+    
+    Parameters:
+        Width, Height: for screen resolution
+        
+    Returns:
+        Picam object
+"""
+def picam_Init(Width, Height):
+    picam2 = Picamera2()
+    preview_config = picam2.create_preview_configuration(main={"size": (Width, Height)})
+    picam2.configure(preview_config)
+    picam2.start()
+    return picam2
+
+
 
 
 """
