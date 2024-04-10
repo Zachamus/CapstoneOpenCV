@@ -6,10 +6,11 @@ import cv2
 import sys
 from picamera2 import Picamera2
 
-Width = 1280
-Height = 720
+Width = 1920
+Height = 1080
 Screen_Center = np.array([Width/2 , Height/2])
-
+cameraMatrix = np.load('cameraMatrix.npy')
+dist = np.load('dist.npy')
 
 
 """
@@ -26,6 +27,8 @@ def picam_Init(Width, Height):
     picam2 = Picamera2()
     preview_config = picam2.create_preview_configuration(main={"size": (Width, Height)})
     picam2.configure(preview_config)
+   # picam2.video_configuration.controls.FrameRate = 30 
+    picam2.set_controls({"FrameRate": 24})
     picam2.start()
     return picam2
 
@@ -70,9 +73,9 @@ def obtain_Vector(corners, ids):
 def obtain_Distance(corners):
     distance_vectors = []
     for corner in corners:
-        rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers((corner, 120, camera_matrix, camera_dist))
-        distance_vectors.append(rvecs)
-    return rvecs    
+        rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers((corner, 120, cameraMatrix, dist))
+        distance_vectors.append(tvecs)
+    return distance_vectors
 
 
 
@@ -96,10 +99,17 @@ else:
 if ARUCO_DICT.get(args["type"], None) is None:
     print(f"ArUCo tag type '{args['type']}' is not supported")
     sys.exit(0)
-
-dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_1000)
+#fourcc = cv2.VideoWriter_fourcc(*'XVID')
+#output_video_filename = 'detection.avi'
+#frame_width, frame_height = 1920,1080
+#video_writer = cv2.VideoWriter(output_video_filename, fourcc, 60.0,  (frame_width, frame_height))
+dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_1000)
 parameters = cv2.aruco.DetectorParameters()
+parameters.useAruco3Detection = True
+parameters.minMarkerPerimeterRate = 0.01
 detector = cv2.aruco.ArucoDetector(dictionary, parameters)
+picam2 = picam_Init(Width, Height)
+
 
 while True:
     frame = picam2.capture_array()
@@ -114,13 +124,15 @@ while True:
 
     frame = cv2.resize(frame, (Width, Height), interpolation=cv2.INTER_CUBIC)
     corners, ids, rejected = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
-    vector_array = obtain_Vector(corners, ids)
+    rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(corners, 0.25, cameraMatrix, dist)
+    print(tvecs)
+    #vector_array = obtain_Vector(corners, ids)
 
 
     detected_markers = aruco_display(corners, ids, rejected, frame)
-    shown_vectors = detected_markers(detected_markers, Screen_Center,  vector_array, (255, 0, 0), 5, 0, 1)
-    cv2.imshow("Image", shown_vectors)
-
+   # shown_vectors = detected_markers(detected_markers, Screen_Center,  vector_array, (255, 0, 0), 5, 0, 1)
+    cv2.imshow("Image", detected_markers)
+#    video_writer.write(frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break

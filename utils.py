@@ -32,7 +32,7 @@ def aruco_display(corners, ids, rejected, image):
 		for (markerCorner, markerID) in zip(corners, ids):
 			# extract the marker corners (which are always returned in
 			# top-left, top-right, bottom-right, and bottom-left order)
-			if markerID == 76:
+			if markerID == 23:
 				markerID = str("UCSB")
 			else:
 				markerID = str("ENEMY")
