@@ -5,12 +5,47 @@ import time
 import cv2
 import sys
 from picamera2 import Picamera2
+import gpiod
 
-Width = 1920
-Height = 1080
+Width = 640
+Height = 480
 Screen_Center = np.array([Width/2 , Height/2])
 cameraMatrix = np.load('cameraMatrix.npy')
 dist = np.load('dist.npy')
+chip=gpiod.Chip('gpiochip4')
+line = chip.get_line(17)
+line.request(consumer='foobar', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[0])
+
+LastState = "low"
+
+def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
+    '''
+    This will estimate the rvec and tvec for each of the marker corners detected by:
+       corners, ids, rejectedImgPoints = detector.detectMarkers(image)
+    corners - is an array of detected corners for each detected marker in the image
+    marker_size - is the size of the detected markers
+    mtx - is the camera matrix
+    distortion - is the camera distortion matrix
+    RETURN list of rvecs, tvecs, and trash (so that it corresponds to the old estimatePoseSingleMarkers())
+    '''
+    marker_points = np.array([[-marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, -marker_size / 2, 0],
+                              [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
+    trash = []
+    rvecs = []
+    tvecs = []
+    
+    for c in corners:
+        nada, R, t = cv2.solvePnP(marker_points, c, mtx, distortion, False, cv2.SOLVEPNP_IPPE_SQUARE)
+        rvecs.append(R)
+        tvecs.append(t)
+        trash.append(nada)
+    return rvecs, tvecs, trash
+
+
+
+
 
 
 """
@@ -122,16 +157,33 @@ while True:
     h, w, _ = frame.shape
     
 
-    frame = cv2.resize(frame, (Width, Height), interpolation=cv2.INTER_CUBIC)
+    #frame = cv2.resize(frame, (Width, Height), interpolation=cv2.INTER_CUBIC)
     corners, ids, rejected = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
-    rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(corners, 0.25, cameraMatrix, dist)
-    print(tvecs)
+    cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+    rvecs, tvecs, trash = my_estimatePoseSingleMarkers(corners, 1, cameraMatrix, dist)
+    for rvec, tvec in zip(rvecs, tvecs):
+        cv2.drawFrameAxes(frame, cameraMatrix, dist, rvec, tvec, length=0.3)
+    
+    
+    if (len(tvecs) > 0 and (tvecs[0][0] < 3) and (tvecs[0][1] < 3) and (tvecs[0][2] < 10)):
+        if (LastState == "low"):
+            line.set_value(1)
+            LastState = "high"
+            print("Turning on GPIO")
+    else:
+        if(LastState == "high"):
+            line.set_value(0)
+            print("Turning off GPIO")
+            LastState = "low"
+
+
+    
     #vector_array = obtain_Vector(corners, ids)
 
 
-    detected_markers = aruco_display(corners, ids, rejected, frame)
+    #detected_markers = aruco_display(corners, ids, rejected, frame)
    # shown_vectors = detected_markers(detected_markers, Screen_Center,  vector_array, (255, 0, 0), 5, 0, 1)
-    cv2.imshow("Image", detected_markers)
+    cv2.imshow("Image", frame)
 #    video_writer.write(frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
@@ -139,3 +191,4 @@ while True:
 
 cv2.destroyAllWindows()
 picam2.stop()
+line.release()
